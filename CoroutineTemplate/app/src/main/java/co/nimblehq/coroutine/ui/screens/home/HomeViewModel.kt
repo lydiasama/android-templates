@@ -1,18 +1,14 @@
 package co.nimblehq.coroutine.ui.screens.home
 
-import androidx.lifecycle.viewModelScope
+import co.nimblehq.coroutine.domain.usecase.GetUsersUseCase
 import co.nimblehq.coroutine.model.UserUiModel
 import co.nimblehq.coroutine.model.toUserUiModels
 import co.nimblehq.coroutine.ui.base.BaseViewModel
 import co.nimblehq.coroutine.ui.base.NavigationEvent
 import co.nimblehq.coroutine.ui.screens.second.SecondBundle
-import co.nimblehq.coroutine.domain.usecase.GetUsersUseCase
-import co.nimblehq.coroutine.domain.usecase.UseCaseResult
 import co.nimblehq.coroutine.util.DispatchersProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
 interface Output {
@@ -39,23 +35,23 @@ class HomeViewModel @Inject constructor(
     }
 
     override fun navigateToSecond(bundle: SecondBundle) {
-        viewModelScope.launch {
+        execute {
             _navigator.emit(NavigationEvent.Second(bundle))
         }
     }
 
     override fun navigateToCompose() {
-        viewModelScope.launch {
+        execute {
             _navigator.emit(NavigationEvent.Compose)
         }
     }
 
     private fun fetchUsers() {
-        showLoading()
         execute {
-            when (val result = getUsersUseCase.execute()) {
-                is UseCaseResult.Success -> _userUiModels.value = result.data.toUserUiModels()
-                is UseCaseResult.Error -> _error.emit(result.exception.message.orEmpty())
+            showLoading()
+            getUsersUseCase.execute().collect { result ->
+                if (result.isSuccess) _userUiModels.value = result.getOrNull()!!.toUserUiModels()
+                else _error.emit(result.exceptionOrNull()!!.message.orEmpty())
             }
             hideLoading()
         }
